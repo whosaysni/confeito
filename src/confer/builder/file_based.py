@@ -1,7 +1,19 @@
 # coding: utf-8
+from __future__ import unicode_literals
+from os import devnull
 from os.path import abspath, normpath
 from imp import load_source
 from confer.builder.base import BuilderBase, UriBasedBuilder
+
+
+def module_from_stream(stream):
+    modname = '__confer_tmp__'
+    try:
+        mod = load_source(modname, devnull, stream)
+    except Exception as exc:
+        raise ImportError('Unable to load module from {}.'.format(repr(stream)))
+    return mod
+    
 
 
 class FileBuilder(BuilderBase, UriBasedBuilder):
@@ -18,19 +30,10 @@ class FileBuilder(BuilderBase, UriBasedBuilder):
         self._format = file_format
 
     def build_configuration(self):
-        modname = '__confer_tmp__'
-        try:
-            mod = load_source(modname, modname, open(self._path, 'r'))
-        except Exception as exc:
-            print self._path
-            print vars(exc)
-            raise
-        return dict(
-            (name, getattr(mod, name))
-            for name in getattr(mod, '__all__',
-                                filter(lambda k: not k.startswith('__'), dir(mod))))
-            
-        
-
-        
-    
+        mod = module_from_stream(open(self._path, 'r'))
+        config_dict = dict(
+            (attr_name, getattr(mod, attr_name))
+            for attr_name in getattr(
+                mod, '__all__',
+                filter(lambda k: not k.startswith('__'), dir(mod))))
+        return config_dict
